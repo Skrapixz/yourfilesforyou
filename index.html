@@ -11,36 +11,52 @@
 
 <header>
 <h1>YourFilesForYou</h1>
-<p>Convert. Compress. Customize. 100% local.</p>
+<p>Convert, Compress, Cut, and Edit Audio — 100% Local</p>
 </header>
 
 <div class="container">
 
+<!-- COMPRESSION / CONVERSION -->
 <div class="card">
-<h2>🎵 Compresser un MP3</h2>
-<p>Réduis la taille de tes fichiers audio facilement.</p>
-<input type="file" id="mp3Input" accept=".mp3">
-<div class="progress-bar"><div class="progress" id="progress"></div></div>
-<button id="compressBtn">Compresser et Télécharger</button>
+<h2>🎵 Compresser / Convertir</h2>
+<p>Réduis la taille de tes fichiers audio ou change le format.</p>
+<input type="file" id="audioInput" accept="audio/*">
+<select id="outputFormat">
+  <option value="mp3">MP3</option>
+  <option value="wav">WAV</option>
+  <option value="m4a">M4A</option>
+</select>
+<div class="progress-bar"><div class="progress" id="processProgress"></div></div>
+<button id="processBtn">Compresser / Convertir et Télécharger</button>
 </div>
 
+<!-- METADATA -->
 <div class="card">
 <h2>🖼️ Modifier les métadonnées</h2>
-<p>Ajoute une cover, change l’artiste, le titre…</p>
-<input type="file" id="editInput" accept=".mp3">
-<button id="editBtn">Modifier et Télécharger</button>
+<p>Ajoute une cover, change le titre ou l’artiste.</p>
+<input type="file" id="metaInput" accept="audio/*">
+<input type="text" id="titleInput" placeholder="Titre">
+<input type="text" id="artistInput" placeholder="Artiste">
+<input type="file" id="coverInput" accept="image/*">
+<button id="metaBtn">Appliquer et Télécharger</button>
 </div>
 
+<!-- COUPER AUDIO -->
 <div class="card">
-<h2>🔄 Convertir un fichier</h2>
-<p>Change le format en quelques secondes.</p>
-<input type="file" id="convertInput" accept=".mp3,.wav,.m4a">
-<select id="formatSelect">
-<option value="mp3">MP3</option>
-<option value="wav">WAV</option>
-<option value="m4a">M4A</option>
+<h2>✂️ Couper un fichier audio</h2>
+<p>Définis le début et la fin pour raccourcir ton audio.</p>
+<input type="file" id="cutInput" accept="audio/*">
+<div style="display:flex; gap:10px; margin-top:10px;">
+  <input type="number" id="startTime" placeholder="Début (s)" min="0" style="flex:1;">
+  <input type="number" id="endTime" placeholder="Fin (s)" min="0" style="flex:1;">
+</div>
+<select id="cutFormat" style="margin-top:10px;">
+  <option value="mp3">MP3</option>
+  <option value="wav">WAV</option>
+  <option value="m4a">M4A</option>
 </select>
-<button id="convertBtn">Convertir et Télécharger</button>
+<div class="progress-bar"><div class="progress" id="cutProgress"></div></div>
+<button id="cutBtn">Couper et Télécharger</button>
 </div>
 
 </div>
@@ -50,6 +66,7 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.8/dist/ffmpeg.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/browser-id3-writer@4.0.0/dist/browser-id3-writer.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
