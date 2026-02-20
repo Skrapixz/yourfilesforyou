@@ -1,6 +1,6 @@
 // ---------------------- INITIALISATION ----------------------
 const { createFFmpeg, fetchFile } = FFmpeg;
-const ffmpeg = createFFmpeg({ log:true });
+const ffmpeg = createFFmpeg({ log: true });
 
 // Elements Compression / Conversion
 const audioInput = document.getElementById('audioInput');
@@ -23,9 +23,26 @@ const cutFormat = document.getElementById('cutFormat');
 const cutBtn = document.getElementById('cutBtn');
 const cutProgress = document.getElementById('cutProgress');
 
-// Charge FFmpeg si besoin
+// ---------------------- CHARGER FFmpeg ----------------------
 async function loadFFmpeg() {
     if(!ffmpeg.isLoaded()) await ffmpeg.load();
+}
+
+// ---------------------- UTILITAIRE : WRITE FILE ----------------------
+async function writeFileToFS(file) {
+    const fileData = new Uint8Array(await file.arrayBuffer());
+    ffmpeg.FS('writeFile', file.name, fileData);
+    return file.name;
+}
+
+// ---------------------- UTILITAIRE : GET MIME ----------------------
+function getMime(ext) {
+    ext = ext.toLowerCase();
+    if(ext === 'mp3') return 'audio/mpeg';
+    if(ext === 'wav') return 'audio/wav';
+    if(ext === 'm4a') return 'audio/mp4';
+    if(ext === 'flac') return 'audio/flac';
+    return `audio/${ext}`;
 }
 
 // ---------------------- COMPRESSION / CONVERSION ----------------------
@@ -39,23 +56,25 @@ processBtn.addEventListener('click', async () => {
     processBtn.innerText = "Processing…";
 
     await loadFFmpeg();
-    ffmpeg.FS('writeFile', file.name, await fetchFile(file));
+    await writeFileToFS(file);
 
     let args = ['-i', file.name];
+
     if(outputExt === 'mp3'){
-        args.push('-b:a', '128k', outputName); // compression MP3
+        args.push('-b:a', '128k', outputName); // Compression MP3
+    } else if(outputExt === 'wav') {
+        // Copy en WAV standard PCM 16bit
+        args.push('-c:a', 'pcm_s16le', outputName);
     } else {
-        args.push(outputName); // conversion directe pour WAV, M4A, FLAC
+        // M4A, FLAC ou autres
+        args.push(outputName);
     }
 
     await ffmpeg.run(...args);
 
-    // Détecter MIME correct
-    let mime = `audio/${outputExt}`;
-    if(outputExt === 'm4a') mime = 'audio/mp4';
-
     const data = ffmpeg.FS('readFile', outputName);
-    const url = URL.createObjectURL(new Blob([data.buffer], {type: mime}));
+    const blob = new Blob([data.buffer], { type: getMime(outputExt) });
+    const url = URL.createObjectURL(blob);
 
     const a = document.createElement('a');
     a.href = url;
@@ -85,8 +104,8 @@ metaBtn.addEventListener('click', async () => {
 
     writer.addTag();
     const taggedBlob = writer.getBlob();
-
     const url = URL.createObjectURL(taggedBlob);
+
     const a = document.createElement('a');
     a.href = url;
     a.download = `meta_${file.name}`;
@@ -106,20 +125,23 @@ cutBtn.addEventListener('click', async () => {
     cutBtn.innerText = "Processing…";
 
     await loadFFmpeg();
-    ffmpeg.FS('writeFile', file.name, await fetchFile(file));
+    await writeFileToFS(file);
 
     let args = ['-i', file.name];
     if(end > start) args.push('-ss', start.toString(), '-to', end.toString());
-    args.push(outputName);
+
+    // Commande spéciale pour WAV pour assurer compatibilité
+    if(outputExt === 'wav'){
+        args.push('-c:a','pcm_s16le', outputName);
+    } else {
+        args.push(outputName);
+    }
 
     await ffmpeg.run(...args);
 
-    // Détecter MIME correct
-    let mime = `audio/${outputExt}`;
-    if(outputExt === 'm4a') mime = 'audio/mp4';
-
     const data = ffmpeg.FS('readFile', outputName);
-    const url = URL.createObjectURL(new Blob([data.buffer], {type: mime}));
+    const blob = new Blob([data.buffer], { type: getMime(outputExt) });
+    const url = URL.createObjectURL(blob);
 
     const a = document.createElement('a');
     a.href = url;
