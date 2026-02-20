@@ -5,89 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>YourFilesForYou</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif;}
-body{
-background: linear-gradient(135deg,#0f0f0f,#1c1c2e,#151528);
-color:white;
-min-height:100vh;
-display:flex;
-flex-direction:column;
-align-items:center;
-}
-
-header{
-padding:40px 20px;
-text-align:center;
-}
-
-h1{
-font-size:2.2rem;
-font-weight:800;
-background:linear-gradient(90deg,#8a2be2,#00bfff);
--webkit-background-clip:text;
-color:transparent;
-}
-
-p{
-opacity:0.7;
-margin-top:10px;
-}
-
-.container{
-width:95%;
-max-width:900px;
-margin-top:30px;
-display:grid;
-gap:20px;
-}
-
-.card{
-background:rgba(255,255,255,0.05);
-backdrop-filter:blur(10px);
-border-radius:20px;
-padding:25px;
-transition:0.4s;
-cursor:pointer;
-border:1px solid rgba(255,255,255,0.08);
-}
-
-.card:hover{
-transform:translateY(-5px);
-background:rgba(255,255,255,0.08);
-}
-
-.card h2{
-font-size:1.2rem;
-margin-bottom:10px;
-}
-
-footer{
-margin-top:40px;
-padding:20px;
-opacity:0.5;
-font-size:0.8rem;
-}
-button{
-margin-top:15px;
-padding:10px 15px;
-border:none;
-border-radius:12px;
-background:linear-gradient(90deg,#8a2be2,#00bfff);
-color:white;
-font-weight:600;
-cursor:pointer;
-}
-button:hover{
-opacity:0.85;
-}
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header>
 <h1>YourFilesForYou</h1>
-<p>Convert. Compress. Customize.</p>
+<p>Convert. Compress. Customize. 100% local.</p>
 </header>
 
 <div class="container">
@@ -95,19 +19,28 @@ opacity:0.85;
 <div class="card">
 <h2>🎵 Compresser un MP3</h2>
 <p>Réduis la taille de tes fichiers audio facilement.</p>
-<button>Commencer</button>
+<input type="file" id="mp3Input" accept=".mp3">
+<div class="progress-bar"><div class="progress" id="progress"></div></div>
+<button id="compressBtn">Compresser et Télécharger</button>
 </div>
 
 <div class="card">
 <h2>🖼️ Modifier les métadonnées</h2>
 <p>Ajoute une cover, change l’artiste, le titre…</p>
-<button>Éditer</button>
+<input type="file" id="editInput" accept=".mp3">
+<button id="editBtn">Modifier et Télécharger</button>
 </div>
 
 <div class="card">
 <h2>🔄 Convertir un fichier</h2>
 <p>Change le format en quelques secondes.</p>
-<button>Convertir</button>
+<input type="file" id="convertInput" accept=".mp3,.wav,.m4a">
+<select id="formatSelect">
+<option value="mp3">MP3</option>
+<option value="wav">WAV</option>
+<option value="m4a">M4A</option>
+</select>
+<button id="convertBtn">Convertir et Télécharger</button>
 </div>
 
 </div>
@@ -116,5 +49,7 @@ opacity:0.85;
 © 2026 YourFilesForYou — 100% Local Processing
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.8/dist/ffmpeg.min.js"></script>
+<script src="script.js"></script>
 </body>
 </html>
