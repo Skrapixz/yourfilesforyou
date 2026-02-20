@@ -1,154 +1,136 @@
 // ---------------------- INITIALISATION ----------------------
+// Utilisation de la syntaxe compatible v0.11 (la plus courante en local)
 const { createFFmpeg, fetchFile } = FFmpeg;
-const ffmpeg = createFFmpeg({ log: true });
+const ffmpeg = createFFmpeg({ 
+    log: true,
+    // Indispensable pour éviter les blocages sur de gros fichiers comme "Ciel gris.wav"
+    mainName: 'main' 
+});
 
-// Elements Compression / Conversion
-const audioInput = document.getElementById('audioInput');
-const outputFormat = document.getElementById('outputFormat');
-const processBtn = document.getElementById('processBtn');
-const processProgress = document.getElementById('processProgress');
+// Sélecteurs d'UI
+const elements = {
+    processBtn: document.getElementById('processBtn'),
+    audioInput: document.getElementById('audioInput'),
+    outputFormat: document.getElementById('outputFormat'),
+    // Métadonnées
+    metaBtn: document.getElementById('metaBtn'),
+    metaInput: document.getElementById('metaInput'),
+    titleInput: document.getElementById('titleInput'),
+    artistInput: document.getElementById('artistInput'),
+    // Cut
+    cutBtn: document.getElementById('cutBtn'),
+    cutInput: document.getElementById('cutInput'),
+    startTime: document.getElementById('startTime'),
+    endTime: document.getElementById('endTime')
+};
 
-// Elements Metadata
-const metaInput = document.getElementById('metaInput');
-const titleInput = document.getElementById('titleInput');
-const artistInput = document.getElementById('artistInput');
-const coverInput = document.getElementById('coverInput');
-const metaBtn = document.getElementById('metaBtn');
-
-// Elements Cut Audio
-const cutInput = document.getElementById('cutInput');
-const startTime = document.getElementById('startTime');
-const endTime = document.getElementById('endTime');
-const cutFormat = document.getElementById('cutFormat');
-const cutBtn = document.getElementById('cutBtn');
-const cutProgress = document.getElementById('cutProgress');
-
-// ---------------------- CHARGER FFmpeg ----------------------
-async function loadFFmpeg() {
-    if(!ffmpeg.isLoaded()) await ffmpeg.load();
-}
-
-// ---------------------- UTILITAIRE : WRITE FILE ----------------------
-async function writeFileToFS(file) {
-    const fileData = new Uint8Array(await file.arrayBuffer());
-    ffmpeg.FS('writeFile', file.name, fileData);
-    return file.name;
-}
-
-// ---------------------- UTILITAIRE : GET MIME ----------------------
-function getMime(ext) {
-    ext = ext.toLowerCase();
-    if(ext === 'mp3') return 'audio/mpeg';
-    if(ext === 'wav') return 'audio/wav';
-    if(ext === 'm4a') return 'audio/mp4';
-    if(ext === 'flac') return 'audio/flac';
-    return `audio/${ext}`;
-}
-
-// ---------------------- COMPRESSION / CONVERSION ----------------------
-processBtn.addEventListener('click', async () => {
-    if(audioInput.files.length === 0) return alert("Choisis un fichier !");
-    const file = audioInput.files[0];
-    const outputExt = outputFormat.value.toLowerCase();
-    const outputName = `${file.name.split('.')[0]}.${outputExt}`;
-
-    processBtn.disabled = true;
-    processBtn.innerText = "Processing…";
-
-    await loadFFmpeg();
-    await writeFileToFS(file);
-
-    let args = ['-i', file.name];
-
-    if(outputExt === 'mp3'){
-        args.push('-b:a', '128k', outputName); // Compression MP3
-    } else if(outputExt === 'wav') {
-        // Copy en WAV standard PCM 16bit
-        args.push('-c:a', 'pcm_s16le', outputName);
-    } else {
-        // M4A, FLAC ou autres
-        args.push(outputName);
+// ---------------------- CHARGEMENT ASYNCHRONE ----------------------
+async function initFFmpeg() {
+    if (!ffmpeg.isLoaded()) {
+        try {
+            await ffmpeg.load();
+        } catch (e) {
+            console.error("Erreur de chargement FFmpeg (Vérifiez les en-têtes COOP/COEP) :", e);
+            alert("FFmpeg n'a pas pu démarrer. Vérifiez votre configuration serveur local.");
+        }
     }
+}
 
-    await ffmpeg.run(...args);
+// Nettoyage du système de fichiers virtuel pour libérer la RAM
+function cleanupFS(filenames) {
+    filenames.forEach(name => {
+        try { ffmpeg.FS('unlink', name); } catch(e) {}
+    });
+}
 
-    const data = ffmpeg.FS('readFile', outputName);
-    const blob = new Blob([data.buffer], { type: getMime(outputExt) });
+// ---------------------- LOGIQUE DE TRAITEMENT ----------------------
+
+async function runAudioTask(file, outputExt, customArgs, isCut = false) {
+    const inputName = file.name;
+    const outputName = `${isCut ? 'cut_' : 'converted_'}${inputName.split('.')[0]}.${outputExt}`;
+    
+    await initFFmpeg();
+
+    // Lecture du fichier en ArrayBuffer (plus stable pour les gros .wav)
+    const data = await file.arrayBuffer();
+    ffmpeg.FS('writeFile', inputName, new Uint8Array(data));
+
+    // Construction des arguments
+    // Note : Placer -ss AVANT -i rend le découpage instantané
+    let args = [...customArgs];
+
+    await ffmpeg.run(...args, outputName);
+
+    // Récupération du résultat
+    const resultData = ffmpeg.FS('readFile', outputName);
+    const blob = new Blob([resultData.buffer], { type: `audio/${outputExt}` });
     const url = URL.createObjectURL(blob);
 
+    // Téléchargement
     const a = document.createElement('a');
     a.href = url;
     a.download = outputName;
     a.click();
 
-    processBtn.disabled = false;
-    processBtn.innerText = "Compresser / Convertir et Télécharger";
-    processProgress.style.width = "0%";
-});
+    // Nettoyage mémoire
+    cleanupFS([inputName, outputName]);
+}
 
-// ---------------------- METADATA ----------------------
-metaBtn.addEventListener('click', async () => {
-    if(metaInput.files.length === 0) return alert("Choisis un fichier !");
-    const file = metaInput.files[0];
-    const arrayBuffer = await file.arrayBuffer();
-    const writer = new ID3Writer(arrayBuffer);
+// ---------------------- ÉVÉNEMENTS ----------------------
 
-    if(titleInput.value) writer.setFrame('TIT2', titleInput.value);
-    if(artistInput.value) writer.setFrame('TPE1', [artistInput.value]);
+// 1. Compression / Conversion
+elements.processBtn.addEventListener('click', async () => {
+    const file = elements.audioInput.files[0];
+    if (!file) return alert("Sélectionnez un fichier !");
 
-    if(coverInput.files.length > 0){
-        const coverFile = coverInput.files[0];
-        const coverArray = await coverFile.arrayBuffer();
-        writer.setFrame('APIC', {type:3, data:coverArray, description:'cover'});
-    }
-
-    writer.addTag();
-    const taggedBlob = writer.getBlob();
-    const url = URL.createObjectURL(taggedBlob);
-
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `meta_${file.name}`;
-    a.click();
-});
-
-// ---------------------- COUPER AUDIO ----------------------
-cutBtn.addEventListener('click', async () => {
-    if(cutInput.files.length === 0) return alert("Choisis un fichier !");
-    const file = cutInput.files[0];
-    const start = parseFloat(startTime.value) || 0;
-    const end = parseFloat(endTime.value) || 0;
-    const outputExt = cutFormat.value.toLowerCase();
-    const outputName = `${file.name.split('.')[0]}_cut.${outputExt}`;
-
-    cutBtn.disabled = true;
-    cutBtn.innerText = "Processing…";
-
-    await loadFFmpeg();
-    await writeFileToFS(file);
-
+    elements.processBtn.disabled = true;
+    const ext = elements.outputFormat.value;
+    
     let args = ['-i', file.name];
-    if(end > start) args.push('-ss', start.toString(), '-to', end.toString());
+    if (ext === 'mp3') args.push('-b:a', '192k');
+    else if (ext === 'wav') args.push('-c:a', 'pcm_s16le', '-ar', '44100');
 
-    // Commande spéciale pour WAV pour assurer compatibilité
-    if(outputExt === 'wav'){
-        args.push('-c:a','pcm_s16le', outputName);
-    } else {
-        args.push(outputName);
-    }
+    await runAudioTask(file, ext, args);
+    elements.processBtn.disabled = false;
+});
 
-    await ffmpeg.run(...args);
+// 2. Métadonnées (Via FFmpeg pour une meilleure compatibilité WAV/MP3)
+elements.metaBtn.addEventListener('click', async () => {
+    const file = elements.metaInput.files[0];
+    if (!file) return alert("Sélectionnez un fichier !");
 
-    const data = ffmpeg.FS('readFile', outputName);
-    const blob = new Blob([data.buffer], { type: getMime(outputExt) });
-    const url = URL.createObjectURL(blob);
+    elements.metaBtn.disabled = true;
+    const title = elements.titleInput.value || "";
+    const artist = elements.artistInput.value || "";
 
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = outputName;
-    a.click();
+    // On utilise l'extension d'origine pour ne pas changer le format
+    const ext = file.name.split('.').pop();
+    const args = [
+        '-i', file.name,
+        '-metadata', `title=${title}`,
+        '-metadata', `artist=${artist}`,
+        '-c', 'copy' // 'copy' permet de ne pas ré-encoder (ultra rapide)
+    ];
 
-    cutBtn.disabled = false;
-    cutBtn.innerText = "Couper et Télécharger";
-    cutProgress.style.width = "0%";
+    await runAudioTask(file, ext, args);
+    elements.metaBtn.disabled = false;
+});
+
+// 3. Couper l'audio
+elements.cutBtn.addEventListener('click', async () => {
+    const file = elements.cutInput.files[0];
+    if (!file) return alert("Sélectionnez un fichier !");
+
+    elements.cutBtn.disabled = true;
+    const start = elements.startTime.value || "0";
+    const end = elements.endTime.value;
+    const ext = file.name.split('.').pop();
+
+    // -ss avant -i pour la vitesse
+    let args = ['-ss', start];
+    if (end) args.push('-to', end);
+    args.push('-i', file.name, '-c', 'copy');
+
+    await runAudioTask(file, ext, args, true);
+    elements.cutBtn.disabled = false;
 });
